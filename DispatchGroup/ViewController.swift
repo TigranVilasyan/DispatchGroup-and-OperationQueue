@@ -7,6 +7,7 @@
 
 import UIKit
 import SDWebImage
+import Combine
 
 class ViewController: UIViewController {
     
@@ -14,14 +15,26 @@ class ViewController: UIViewController {
     @IBOutlet weak var imageView2: UIImageView!
     @IBOutlet weak var imageView3: UIImageView!
     
-    var result1: SearchResult?
-    var result2: SearchResult?
-    var result3: SearchResult?
+    var result1: SearchResult? {
+        didSet {
+            self.imageView1.sd_setImage(with: URL(string: (self.result1?.imageResults[0].image.src)!)) }
+    }
+    var result2: SearchResult? {
+        didSet {
+            self.imageView2.sd_setImage(with: URL(string: (self.result2?.imageResults[0].image.src)!))
+        }
+    }
+    var result3: SearchResult? {
+        didSet {
+            self.imageView3.sd_setImage(with: URL(string: (self.result3?.imageResults[0].image.src)!))
+        }
+    }
+    
     var getImageNetwork = GetImageNetwork()
-    let lock = NSLock()
+    var dispatchQueue = DispatchQueue(label: "NetworkThread",qos: .background)
     
     func request1(completion: @escaping (SearchResult) -> Void) {
-        DispatchQueue.main.asyncAfter(deadline: .now()) {
+        dispatchQueue.async {
             self.getImageNetwork.getImage(imageName: "tesla", completion: { [weak self] data in
                 completion(data)
             })
@@ -29,7 +42,7 @@ class ViewController: UIViewController {
     }
     
     func request2(completion: @escaping (SearchResult) -> Void) {
-        DispatchQueue.main.asyncAfter(deadline: .now()) {
+        dispatchQueue.async {
             self.getImageNetwork.getImage(imageName: "Mercedes") { [weak self] data in
                 completion(data)
             }
@@ -37,7 +50,7 @@ class ViewController: UIViewController {
     }
     
     func request3(completion: @escaping (SearchResult) -> Void) {
-        DispatchQueue.main.asyncAfter(deadline: .now()) {
+        dispatchQueue.async {
             self.getImageNetwork.getImage(imageName: "bmw") { [weak self] data in
                 completion(data)
             }
@@ -52,55 +65,40 @@ class ViewController: UIViewController {
     
     
     func operationQueue() {
-        let op1 = Operation()
-        let op2 = Operation()
-        let op3 = Operation()
-        let op4 = Operation()
         let operationQueue = OperationQueue()
-        op1 ==> op2 ==> op3 ==> op4
-        operationQueue.addOperation(op1)
-        operationQueue.addOperation(op2)
-        operationQueue.addOperation(op3)
-        operationQueue.addOperation(op4)
+        operationQueue.qualityOfService = .background
+        
+        let op1 = Operation()
         op1.completionBlock = {
-            self.lock.lock()
             print("First")
             self.request1 { [weak self] data in
                 self?.result1 = data
-                self?.lock.unlock()
                 print("Request 1 completed")
-                
             }
         }
+        
+        let op2 = Operation()
         op2.completionBlock = {
-            self.lock.lock()
             print("Second")
             self.request2 { [weak self] data in
                 self?.result2 = data
-                self?.lock.unlock()
                 print("Request 2 completed")
+                
             }
         }
+        op1 ==> op2
         
+        let op3 = Operation()
         op3.completionBlock = {
-            self.lock.lock()
             print("Third")
             self.request3 { [weak self] data in
                 self?.result3 = data
-                self?.lock.unlock()
                 print("Request 3 completed")
             }
         }
+        op2 ==> op3
         
-        op4.completionBlock = {
-            print("Fourth")
-            self.lock.lock()
-            self.imageView1.sd_setImage(with: URL(string: (self.result1?.imageResults[0].image.src)!))
-            self.imageView2.sd_setImage(with: URL(string: (self.result2?.imageResults[0].image.src)!))
-            self.imageView3.sd_setImage(with: URL(string: (self.result3?.imageResults[0].image.src)!))
-            self.lock.unlock()
-            print("All requests completed")
-        }
+        operationQueue.addOperations([op1, op2, op3], waitUntilFinished: true)
     }
     
     func dispatchGroupCall() {
@@ -125,10 +123,12 @@ class ViewController: UIViewController {
         }
         
         requestsGroup.notify(queue: .main) { [self] in
-            imageView1.sd_setImage(with: URL(string: (self.result1?.imageResults[0].image.src)!))
-            imageView2.sd_setImage(with: URL(string: (self.result2?.imageResults[0].image.src)!))
-            imageView3.sd_setImage(with: URL(string: (self.result3?.imageResults[0].image.src)!))
-            print("All requests completed")
+            DispatchQueue.main.sync {
+                imageView1.sd_setImage(with: URL(string: (self.result1?.imageResults[0].image.src)!))
+                imageView2.sd_setImage(with: URL(string: (self.result2?.imageResults[0].image.src)!))
+                imageView3.sd_setImage(with: URL(string: (self.result3?.imageResults[0].image.src)!))
+                print("All requests completed")
+            }
         }
     }
 }
