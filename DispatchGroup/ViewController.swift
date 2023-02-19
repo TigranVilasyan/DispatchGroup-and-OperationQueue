@@ -17,16 +17,23 @@ class ViewController: UIViewController {
     
     var result1: SearchResult? {
         didSet {
-            self.imageView1.sd_setImage(with: URL(string: (self.result1?.imageResults[0].image.src)!)) }
+            guard let imagePath = result1?.imageResults[0].image.src,
+                  let url = URL(string: imagePath) else { return }
+            self.imageView1.downloaded(from: url)
+        }
     }
     var result2: SearchResult? {
         didSet {
-            self.imageView2.sd_setImage(with: URL(string: (self.result2?.imageResults[0].image.src)!))
+            guard let imagePath = result2?.imageResults[0].image.src,
+                  let url = URL(string: imagePath) else { return }
+            self.imageView2.downloaded(from: url)
         }
     }
     var result3: SearchResult? {
         didSet {
-            self.imageView3.sd_setImage(with: URL(string: (self.result3?.imageResults[0].image.src)!))
+            guard let imagePath = result3?.imageResults[0].image.src,
+                  let url = URL(string: imagePath) else { return }
+            self.imageView3.downloaded(from: url)
         }
     }
     
@@ -35,7 +42,7 @@ class ViewController: UIViewController {
     
     func request1(completion: @escaping (SearchResult) -> Void) {
         dispatchQueue.async {
-            self.getImageNetwork.getImage(imageName: "tesla", completion: { [weak self] data in
+            self.getImageNetwork.getImage(imageName: "tesla", completion: { data in
                 completion(data)
             })
         }
@@ -43,7 +50,7 @@ class ViewController: UIViewController {
     
     func request2(completion: @escaping (SearchResult) -> Void) {
         dispatchQueue.async {
-            self.getImageNetwork.getImage(imageName: "Mercedes") { [weak self] data in
+            self.getImageNetwork.getImage(imageName: "Mercedes") { data in
                 completion(data)
             }
         }
@@ -51,7 +58,7 @@ class ViewController: UIViewController {
     
     func request3(completion: @escaping (SearchResult) -> Void) {
         dispatchQueue.async {
-            self.getImageNetwork.getImage(imageName: "bmw") { [weak self] data in
+            self.getImageNetwork.getImage(imageName: "bmw") { data in
                 completion(data)
             }
         }
@@ -59,8 +66,8 @@ class ViewController: UIViewController {
     
     override func viewDidLoad() {
         super.viewDidLoad()
-        //        dispatchGroupCall()
-        operationQueue()
+        dispatchGroupCall()
+//        operationQueue()
     }
     
     
@@ -122,13 +129,8 @@ class ViewController: UIViewController {
             requestsGroup.leave()
         }
         
-        requestsGroup.notify(queue: .main) { [self] in
-            DispatchQueue.main.sync {
-                imageView1.sd_setImage(with: URL(string: (self.result1?.imageResults[0].image.src)!))
-                imageView2.sd_setImage(with: URL(string: (self.result2?.imageResults[0].image.src)!))
-                imageView3.sd_setImage(with: URL(string: (self.result3?.imageResults[0].image.src)!))
-                print("All requests completed")
-            }
+        requestsGroup.notify(queue: .main) {
+            print("All requests completed")
         }
     }
 }
